@@ -1,0 +1,270 @@
+---
+title: "Reading Data Into R"
+author: "Rihad Variawa"
+date: "11/09/2019"
+output: html_document
+---
+
+Before we do some complex analysis with the data, the first step is to import data into R. This exercise focuses entirely on different ways of loading data into the R environment. The following are some of the most common ways of doing it.
+
+* Reading from CSV data
+* Reading from database
+* R binary files
+* Data included with R
+* Data from other statistical tools
+* Extract data from websites
+* Reading data from AWS S3
+
+### Reading From CSV Data
+The best way to read data from a CSV file is to use **read.table.** It might be tempting to use read.csv but that is more trouble than it is worth, and all it does is call read.table with some arguments preset. The results of using read.table is a data.frame.
+
+Any CSV will work but for explanatory purposes, let's use an incredibly simple CSV at http://www.jaredlander.com/data/Tomato%20First.csv. Let's read that data into R using read.table.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# we are taking advantage of the Tidyverse library. This is a must-have library for data scientists using R.
+
+## install packages if necessary
+list.of.packages <- c("RODBC", "knitr", "ggplot2", "XML")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+library(RODBC)
+library(ggplot2)
+library(XML)
+```
+
+## Reading in tomato data from url
+
+```{r }
+url <- "http://www.jaredlander.com/data/Tomato%20First.csv"
+tomato <- read.table(file = url, header = TRUE, sep = ",")
+head(tomato)
+```
+
+The second argument header , indicates that the first row of the data holds the column names. The third argument gives the delimiter separating the data cells. For example, changing this “ \t ” or “ ; ” allows it to read other types of files.
+
+One often unknown argument that is helpful to use is **stringAsFactors.** Setting this to False (the default is True) prevents characters columns being converted into factor columns. This saves computation time — this can be dramatic if it is a large column data with many character columns with many unique values.
+
+There are numerous other arguments to read.table, the most useful being quote and colclasses , specifying the character used for enclosing cells and data type for each column respectively.
+
+Sometimes CSVs are poorly built, where the cell separator has been used inside the call. In this case read.csv2 or read.delim2 should be used instead of read.table.
+
+R’s built-in read.table command can be made to read the most separated value formats. Many deeper data formats have corresponding R packages
+
+* XLS/XLSX - http://cran.r-project.org/doc/manuals/R-data.html#Reading-Excel-spreadsheets
+* JSON - http://cran.r-project.org/web/packages/rjson/index.html
+* XML - http://cran.r-project.org/web/packages/XML/index.html
+* MongoDB - http://cran.r-project.org/web/packages/rmongodb/index.html
+* SQL- http://cran.r-project.org/web/packages/DBI/index.html
+
+## Reading from databases
+
+Databases arguably store the vast majority of the world’s data. Most of these whether be Mircrosoft SQL Server, DB2 or Microsoft Access, provide an ODBC connection. Accordingly, R makes use of ODBC through aptly named RODBC package. Like any other package, it must be loaded before use.
+
+The first step to reading from a database is to create a DSN. This differs from the operating system but should result in a string name for that connection.
+
+```{r}
+# install.packages("RODBC")
+# require(RODBC)
+
+# create a connection to the database called "db"
+db <- odbcConnect("DATABASE", uid="USERNAME", pwd="PASSWORD", believeNRows=FALSE)
+
+# check that connection is working (Optional)
+odbcGetInfo(db)
+```
+
+At this point, we are ready to run a query on that database using sqlquery . This can be any valid SQL query of arbitrary complexity, sqlquery returns a data.frame just like any other. As we see in the CSV example setting stringAsFactors to FALSE is usually a good idea, as it will save processing time.
+
+## Running simple query in database
+
+```{r}
+# simple SELECT * query from one table
+ordersTable <- sqlQuery(db, "SELECT * FROM Orders", stringAsFactors=FALSE)
+head(OrderTable)
+```
+
+## Joining Two Tables 
+
+```{r}
+# do join between the two tables
+query <- "SELECT * FROM Orders, [Order Details] where Orders.OrderID=[Order Details].OrderID
+detailsJoin <- sqlQuery(db, query, stringAsFactors=FALSE)
+```
+
+While it is not necessary, it is good practice to close the ODBC connection using odbcClose, although it will close automatically either R closes or we open another connection using odbcConnect. Only one connection may be open at a time.
+
+## Saving R object to Rdata format
+
+### R Binary Files
+When working with other R programmers, a good way to pass around data or any R objects like variable and functions is to use RData files. These binary files that represent R objects of any kind. They can store single or multiple objects and can be passed among Windows, Mac or Linux without a problem.
+
+First, let’s create an RData file, remove the object that created it, and then read it back into R.
+
+```{r}
+save(tomato,file="tomato.rdata")
+rm(tomato)
+```
+
+## Checking the deleted R object
+
+```{r}
+head(tomato)
+```
+
+## Reloading tomato data from Rdata
+
+Now let’s load it again from the RData file.
+
+```{r}
+load("tomato.rdata")
+
+# check if it exist now
+head(tomato)
+```
+
+Now let’s create multiple objects and store them in single RData file, remove them and then load them again.
+
+## Creating Multiple Data
+
+```{r}
+n <- 20
+r <- 1:10
+w <- data.frame(n,r)
+head(w)
+```
+
+```{r}
+save(n, r, w, file="multiple.rdata")
+
+# delete them
+rm(n, r, w)
+```
+
+```{r}
+head(w)
+```
+
+
+```{r}
+# now load them back from rdata
+load("multiple.rdata")
+n
+r
+```
+
+## Loading data included with R ggplot2
+
+### Data Included With R
+In addition to external data sources, R and some packages come with data included, so we easily have data to use. Accessing these data is simple as long as we know what to for. ggplot2 for instance, comes with a dataset about diamonds . It can be loaded using the data function as below
+
+```{r}
+# require(ggplot2)
+data(diamonds)
+head(diamonds)
+```
+
+To find the list of available data, simple type data() into the console. Sample datasets available in R as follows.
+
+## List of all data available in ggplot2 package
+
+```{r}
+data()
+```
+
+## Scraping table from online resource
+
+### Extract Data From Websites
+These days a lot of data are displayed on web pages. If we are lucky, it is stored neatly in anHTML table. If we are not so lucky, we might need to parse the text of the page.
+
+If the data are stored neatly in an HTML table we can use readHTMLTable in the XML package to easily extract it. One simple example is as follows
+
+```{r}
+# install.packages("XML")
+# library(XML)
+url <- "http://www.jaredlander.com/2012/02/another-kind-of-super-bowl-pool/"
+bowlPool <- readHTMLTable(url, which=1, header=FALSE, stringAsFactors=FALSE)
+bowlPool
+```
+
+Here the first argument was the URL but it could have also been a file on disk. The which argument allows us to choose which table to read if there are multiple tables. The other knows parameters include setting header to FALSE to indicate no header and stringAsFactors so that character columns would not be converted to factors.
+
+If the data are not so neatly stored as above example, it is possible to scrape them off the page, although this is a very involved process as it requires good pattern matching and regular expressions.
+
+### Data From Other Statistical Tools
+In an ideal world, another tool besides R would never be needed, but in reality, data are sometimes locked in a proprietary format such as those from SAS, SPSS or Octave. The foreign packages provide a number of functions similar to read.table to read in from other tools.
+
+A partial list of functions to read data from the commonly used statistical tool is given below. The arguments for these functions are generally similar to read.table . These functions usually return the data as data.frame but do not always succeed.
+
+* read.spss - SPSS
+* read.dta - Stata
+* read.ssd - SAS
+* read.octave - Octave
+* read.mtp - Minitab
+* read.systat - Systat
+
+While read.ssd can read SAS data, it requires a valid SAS license. This can be sidestepped by using Revolution from Revolution Analytics with their special RxSasData function in their RevoScaleR package.
+
+## Installing aws.s3 package
+
+### Reading From AWS S3
+One common way to read data from AWS S3 is to use client package aws.s3 . aws.s3 is a simple client package for the AWS S3 REST API. While other packages currently connect R to S3, they do so incompletely (mapping only some of the API endpoints to R) and most implementations rely on the AWS command-line tools, which users may not have installed on their system.
+
+This package is not yet on CRAN. To install the latest development version you can install from the cloudyr drat repository.
+
+```{r}
+# latest stable version
+install.packages('aws.s3', repos = c('cloudyr' = 'http://cloudyr.github.io/drat'))
+
+# on windows you may need:
+install.packages('aws.s3', repos = c('cloudyr' ='"http://cloudyr.github.io/drat'), INSTALL_opts = '--no-multiarch')
+```
+
+Once done, you can access S3 (assuming you’ve got the permissions right) using the functions described in the examples.
+
+If you do not have access key and secret key kindly follow the link to get your credentials.
+
+For e.g. listing the files as follows worked for me:
+
+## Accessing s3 bucket
+
+```{r}
+Sys.setenv('AWS_ACCESS_KEY_ID' = 'XXXXXXXXX',
+           'AWS_SECRET_ACCESS_KEY' = 'yyyyyyyy',
+           'AWS_DEFAULT_REGION' = 'us-west-1')
+
+library('aws.s3')
+bucketlist()
+
+# to get listing of all objects in a public bucket
+files <- get_bucket(bucket = 'bucket name')
+```
+
+S3 can be a bit picky about region specifications. bucketlist() will return buckets from all regions, but all other functions require specifying a region. A default "us-east-1" is relied upon if none is specified explicitly and the correct region can’t be detected automatically.
+
+Some of the commonly used functions to read objects from S3 and write objects into S3 are as follows.
+
+## Commonly used function to read and write objects in S3 
+
+```{r}
+# save an in-memory R object into S3
+s3save(mtcars, bucket = 'my_bucket', object = 'mtcars.Rdata')
+
+# `load()` R objects from the file
+s3load('mtcars.Rdata', bucket = 'my_bucket')
+
+# get file as raw vector
+get_object('mtcars.Rdata', bucket = 'my_bucket')
+# alternative 'S3 URI' syntax:
+get_object('s3://my_bucket/mtcars.Rdata')
+
+# save file locally
+save_object('mtcars.Rdata', file = 'mtcars.Rdata', bucket = 'my_bucket')
+
+# put local file into S3
+put_object(file = 'mtcars.Rdata', object = 'mtcars2.Rdata', bucket = 'my_bucket')
+```
+
+Reading data is the first step to any analysis; so it is the most important step in any data analysis project. In this exercise, we have covered extensively some of the most common ways of reading data into the R environment.
+

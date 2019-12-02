@@ -1,0 +1,172 @@
+---
+title: "Advanced Data Wrangling"
+author: "Rihad Variawa"
+date: "11/9/2019"
+output: html_document
+---
+
+If you are a speed junky; you prefer speed over readability of the code and deal with a very large dataset on a daily basis then you are in the right place to learn the right tool. There is a package called data.table in R that extends the functionality of data.frames. The syntax is a little different from regular data.frames, so it will take time to get used to, which is probably the primary reason it has not been near-universal adoption.
+
+And data.table is not the only package that helps in data frame manipulation. There is another excellent package by Hadley Wickham called dplyr. It has its own grammar of data manipulation, providing a consistent set of verbs that help you solve the most common data manipulation.
+
+* filter() to select cases based on their values.
+* arrange() to reorder the cases.
+* select() and rename() to select variables based on their names.
+* mutate() and transmute() to add new variables that are functions of existing variables.
+* summarise() to condense multiple values to a single value.
+* sample_n() and sample_frac() to take random samples.
+
+There is always a debate between usability, readability, and speed between these two packages. A StackOverflow discussion is worth following to know more about what one package can do and the other cannot. In general, if you are looking for speed then data.tables is most preferred but the readability of the code is your major concern then dplyr is the way to fo
+
+In this exercise, our focus in on data.table and the secret to the speed is that data.table has an index like a database. This allows faster accessing, group by operation and joins.
+
+Creating data.table is just like creating data.frames , and the two are very similar.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+require(data.table)
+## create a regular data.frame
+theDf <- data.frame(A=1:10,B=letters[1:10],C=LETTERS[1:10],D=rep(c("One","Two","Three"),length.out=10))
+
+## create a data.table
+theDt = data.table(A=1:10,B=letters[1:10],C=LETTERS[1:10],D=rep(c("One","Two","Three"),length.out=10))
+## print and compare
+theDt
+```
+
+It can be noticed below that by default data.frame turns character data into factors while data.table does not.
+
+```{r}
+class(theDf$B)
+class(theDt$B)
+```
+
+The data are identical except that data.frame turned B into a factor while data.table did not.
+
+It is also possible to create a data.table out of an existing data.frame as given below.
+
+```{r}
+require(ggplot2)
+diamondsDT <- data.table(diamonds)
+diamondsDT
+```
+
+Now let us see how to perform some common and advanced data manipulation using data.table.
+
+## Accessing Rows
+
+Accessing the rows can be done similarly to accessing rows in data.frame. The following code subset the data to the first two rows.
+
+```{r}
+theDt[1:2,]
+```
+
+To filter rows based on some condition we can use the following one-liner. Although the one-liner is the valid syntax, it is not necessarily efficient syntax. That line creates a vector of length nrow=10 consisting of True or False entries, which is a vector scan. 
+
+After we create a key for the data.tables we can use different syntax to pick rows through binary search, which will be much faster and is covered in the coming section.
+
+```{r}
+theDt[theDt$A >=7,]
+```
+
+## Accessing Columns
+
+Accessing individual columns must be done a little differently than accessing columns in data.frames. In data.frames to subset, multiple column names should be specified as character vectors. With data.tables the columns should be specified as a list of actual names, not as characters.
+
+```{r}
+theDt[,list(A,C)]
+```
+
+If we must specify the column names as characters (perhaps because they were passed as arguments to a function), the with argument should be set to FALSE.
+
+```{r}
+theDt[,c("A","C"), with=FALSE]
+```
+
+This time we used a vector to hold the column names instead of a list. These nuances are important to proper functions of data.table but can lead to a great deal of frustration.
+
+## Keys
+
+Now that we have a few data.tables in memory, we might be interested in seeing some information about them.
+
+```{r}
+## show tables
+tables()
+```
+
+This shows for each data.table in memory, the name, the number of rows, the size in megabytes, the column names and the key. We have not assigned keys for any of the tables so that column is blank as of now. The key is used to index the data.table and will provide the extra speed.
+
+We start by adding the key to theDt. We will use the D column to index the data.table . This is done using set.key , which takes the name of the data.table as its first argument and the name of the desired column (without quotes, as is consistent with column section) as the second argument.
+
+```{r}
+## set the key
+setkey(theDt, D)
+
+## show the data.table again
+theDt
+```
+
+The data have been reordered according to column D , which is sorted alphabetically. We can confirm the key was set with key function.
+
+```{r}
+key(theDt)
+```
+
+This adds some new functionality to selecting rows from data.tables. In addition to selecting rows by the row number or by some expression that evaluates to TRUE or FALSE, a value of the key column can be specified.
+
+```{r}
+theDt[c("One","Two"),]
+```
+
+More than one column can also be set as the key in data.tables as follows.
+
+```{r}
+setkey(diamondsDT, cut, color)
+```
+
+To access rows according to both keys, there is a special function J. It takes multiple arguments, each of which is the vector of values to select.
+
+```{r}
+head(diamondsDT)
+```
+
+
+```{r}
+# diamondsDT[J("Ideal"), c("E","D")]
+```
+
+## Aggregation
+
+The primary benefit of indexing is faster aggregation. While aggregate and various d*ply functions will work because data.table are just enhanced data.frames but they will be slower than using the built-in aggregate functionality of the data.tables. Let us quickly compare the syntactic difference between the built-in and external aggregate functionality.
+
+To calculate the mean price of diamonds for each type of cut, let us use the aggregate function which we used in our previous article.
+
+```{r}
+aggregate(price~cut, diamonds, mean)
+```
+
+To get the same result using the data.table aggregate functionality we use the following code.
+
+```{r}
+diamondsDT[,mean(price), by=cut]
+```
+
+The only difference between the two results is that columns have different names. In data.tables , the default name V1is assigned to the aggregated column. To specify the name of the resulting column, pass the aggregation function as a named list. To aggregate on multiple columns, specify them as list()
+
+```{r}
+diamondsDT[,list(price=mean(price)), by=cut]
+
+## aggreagate on  multiple columns
+diamondsDT[,list(price=mean(price)), by=list(cut, color)]
+```
+
+And to aggregate multiple arguments, pass them as list. Unlike with aggregate function, a different metric can be measured for each column.
+
+```{r}
+diamondsDT[,list(price=mean(price), carat=mean(carat), caratSum=sum(carat)), by=list(cut, color)]
+```
+
+Data wrangling is a very important step in any analytics pipeline. Sometimes it is the end goal, and other times it is in preparation for applying more advanced methods. No matter the reason, there are plenty of functions to make it possible. These include aggregate, apply family in R and group by functionality in data.table.

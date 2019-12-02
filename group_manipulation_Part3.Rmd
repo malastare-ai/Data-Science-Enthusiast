@@ -1,0 +1,156 @@
+---
+title: "Group Manipulation"
+author: "Rihad Variawa"
+date: "11/09/2019"
+output: html_document
+---
+
+A general rule of thumb for data analysis is that manipulating the data or data munging consumes 80 % of the effort. This often requires repeated operations on different sections of the data — *split-apply-combine.* That is, we split the data into discrete sections based on some metric, apply a transformation of some kind to each section, and then combine all the sections together. There are many ways to iterate over data in R, and we will see some of the most convenient methods of doing it.
+
+### Apply Family
+R has built-in apply function and all of its relatives such as *tapply, lapply, sapply and mapply.* Let’s see how each function has its own usage while manipulating the data.
+
+#### apply
+*apply* is the first member of this family that users usually learn and it is also the most restrictive in nature. It must be used on the matrix, meaning all of the elements must be of the same type whether they are character, numeric or logical. If used on some other object, such as data.frame, it will be converted to a matrix first.
+
+The first argument to *apply* is the object we are working with. The second argument is the margin to apply the function over, with 1 meaning to operate over the rows and 2 meaning operating over the columns. The third argument is the function we want to apply. Any following argument will be passed on to the function.
+
+To illustrate its use we start with a trivial example, summing the rows or columns of a matrix. Notice that this could alternatively be accomplished using the built-in *rowSums and colSums,* yielding the same results.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+theMatrix <- matrix(1:9, nrow=3)
+head(theMatrix)
+```
+
+## apply - row sum
+
+```{r}
+# 1 meaning to operate over the rows
+apply(theMatrix, 1, sum)
+```
+
+## apply - column sum
+
+```{r}
+# 2 meaning operating over the columns
+apply(theMatrix, 2, sum)
+```
+
+## apply - row sum with missing values
+
+Similar to most of the R functions where we have an argument *na.rm* to handle missing values NA in the matrix or any other data type. Let’s add some NA to the theMatrix.
+
+```{r}
+theMatrix[2,1] <- NA
+head(theMatrix)
+
+apply(theMatrix, 1, sum)
+```
+
+By adding *na.rm* argument to the apply function, it will ignore the missing values and calculate the sum over rows and columns.
+
+
+```{r}
+apply(theMatrix, 1, sum, na.rm=TRUE)
+head(theMatrix)
+```
+
+## lapply - sum operation
+
+*lapply* works similar to apply but it applies the function to each element of the *list* and returning the results as *list* as well.
+
+```{r}
+theList <- list(A=matrix(1:9, 3), B=1:5,C=matrix(1:4, 2), D=2)
+lapply(theList, sum)
+```
+
+Dealing with *lists* feels a bit cumbersome sometimes, so to return the result as vector instead, *sapply* can be put into use in the same way as *lapply.* And a vector is technically a form of list, so *lapply* and *sapply* can also take vector as their input.
+
+## sapply -  sum operation
+
+```{r}
+sapply(theList, sum)
+```
+
+```{r}
+# count n of characters in each name
+theNames <- c("Jared", "Deb", "Paul")
+sapply(theNames, nchar)
+```
+
+## mapply
+
+Perhaps the most overlooked but so useful member of the apply family is *mapply,* which applies a function to each element of multiple *lists.* Often when confronted with this scenario, people will resort to using a loop, which is certainly not necessary. Let’s build two lists to understand the usage of the *mapply* with an example. We use built-in identical function in R to see whether two lists are identical by comparing element-to-element.
+
+```{r}
+# build two lists
+firstList <- list(A=matrix(1:16,4),B=matrix(1:16,2),c(1:5))
+
+secondList <- list(A=matrix(1:16,4),B=matrix(1:16,8),c(15:1))
+
+# test element by element if they are identical
+mapply(identical, firstList, secondList)
+```
+
+*mapply* can also take user-defined function in place of built-in function in R. Let’s build a simple function that adds the number of rows of each corresponding element in a lists.
+
+```{r}
+simpleFunc <- function(x,y) {
+              NROW(x) + NROW(y)
+              }
+mapply(simpleFunc, firstList, secondList)
+```
+
+There are many other members of the apply family that either do not get used much or have been superseded by functions in the plyr family. They include
+
+* tapply
+* rapply
+* eapply
+* vapply
+* by
+
+## aggregate
+
+Human who got used to SQL terminology generally wants to run a *groupby* and aggregation as their first R task. The way to do this is to use the aptly named *aggregate* function. We have multiple ways to call, aggregate and we will see the most convenient ways of calling it using formula notation.
+
+*formulas* consist of a left side and right side separated by a tilde (~). The usage of formula methodology is similar to how we created graphics using ggplot2. The left side represents the variable that we want to make a calculation on and the right side represents one or more variables that we want to group the calculation by. To demonstrate the usage of aggregate we once resort to diamonds data in ggplot2.
+
+
+```{r}
+require(ggplot2)
+data(diamonds)
+head(diamonds)
+```
+
+As a first example, we will calculate the average price for each type of cut in the diamonds data. The first argument *aggregate* is the formula specifying that the price should be broken by cut. The second argument is the data to use, in this case, diamonds. The third argument is the function to apply to each subset of the data.
+
+```{r}
+aggregate(price~cut, diamonds, mean)
+```
+
+Notice that we only specified the column name and did not have to identify the data because that is given in the second argument. After the third argument specifying the function, additional named arguments to that function can be passed as follows.
+
+```{r}
+aggregate(price~cut, diamonds, mean, na.rm=T)
+```
+
+To group data by more than one variable, add the additional variable to the right side of the formula separating it with a plus sign(+).
+
+
+```{r}
+aggregate(price~cut + color, diamonds, mean)
+```
+
+To aggregate two variables, they must be combined using cbind on the left side of the formula.
+
+```{r}
+aggregate(cbind(price, carat) ~ cut + color, diamonds, mean)
+```
+
+It is important to note from the above example only one function can be supplied, and hence applied to the variables. To apply more than one function, it easier to use the dplyr or data.table packages which extend and enhances the capability of data.frames.
+
+Aggregating data is a very important step in the analysis process. Sometimes it is the end goal and other times it is the preparation for applying more advanced methods. In this exercise we have seen common methodologies to perform group manipulation in R. 
