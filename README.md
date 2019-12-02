@@ -7,7 +7,7 @@ Whenever someone wants to start a career in data science. We have vast number of
 
 The contents are inspired from couple of books which I got introduced during my IIM-B days.
 * R for Everyone - Jared P. Lander
-* Practical Data Science with R - Nina Zumel & John Mount
+* Practical Data Science with R - Nina Zumel, John Mount & Rihad Variawa
 
 This series is for those who need quick introduction to statistics and machine learning using R. All codes and data used in the series are available in the repository.
 
